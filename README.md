@@ -48,6 +48,10 @@ BASE_URL = 'https://demosite.example.com'
 LOGIN_REDIRECT_URL = '/'
 # Optional: seconds to wait for id.scene.org before giving up (default 5)
 SCENEID_TIMEOUT = 5
+# Optional: scopes to request (default: SceneID's default, 'basic'). Add
+# 'user:email' to receive the user's e-mail address as `email` in the user
+# data; users may decline it, so don't rely on it being there.
+SCENEID_SCOPES = ['basic', 'user:email']
 ```
 
 If the login fails (the user cancels on SceneID, their session expires, or SceneID can't be reached or returns an error), the user is sent to `LOGIN_URL` with an error message from Django's messages framework, so your login page should display messages.

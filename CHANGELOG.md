@@ -9,6 +9,7 @@ Unreleased
  * A mismatched `state` now also returns to the login page with a message, instead of a 400 error
  * Each `state` is used for one login only
  * Import `urllib.parse` explicitly
+ * New `SCENEID_SCOPES` setting to request scopes such as `user:email`
 
 
 0.1.2 (2024-04-12)

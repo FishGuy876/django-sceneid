@@ -62,7 +62,9 @@ class AuthRedirectView(View):
         client = _get_sceneid_client()
         state = get_random_string(length=32)
 
-        redirect_uri = client.get_authorization_uri(state, _get_return_uri())
+        redirect_uri = client.get_authorization_uri(
+            state, _get_return_uri(), scopes=getattr(settings, 'SCENEID_SCOPES', None)
+        )
         request.session['sceneid_state'] = state
         request.session['sceneid_next_url'] = request.GET.get('next')
         return redirect(redirect_uri)

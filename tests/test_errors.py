@@ -100,3 +100,14 @@ class TestClientErrors(TestCase):
         responses.add(responses.GET, ME_URL, body=requests.exceptions.ConnectionError('down'))
         with self.assertRaises(SceneIDError):
             self.sceneid_client.get_user_data('token')
+
+
+class TestScopes(TestCase):
+    def test_default_requests_no_scope(self):
+        response = self.client.get('/account/sceneid/auth/')
+        self.assertNotIn('scope=', response['Location'])
+
+    def test_scopes_setting(self):
+        with self.settings(SCENEID_SCOPES=['basic', 'user:email']):
+            response = self.client.get('/account/sceneid/auth/')
+        self.assertIn('scope=basic+user%3Aemail', response['Location'])
