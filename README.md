@@ -46,7 +46,11 @@ SCENEID_CLIENT_SECRET = 'supersecretclientsecret'
 BASE_URL = 'https://demosite.example.com'
 # Where to redirect to after login (defaults to /accounts/profile/)
 LOGIN_REDIRECT_URL = '/'
+# Optional: seconds to wait for id.scene.org before giving up (default 5)
+SCENEID_TIMEOUT = 5
 ```
+
+If the login fails (the user cancels on SceneID, their session expires, or SceneID can't be reached or returns an error), the user is sent to `LOGIN_URL` with an error message from Django's messages framework, so your login page should display messages.
 
 Integrating into your site
 --------------------------

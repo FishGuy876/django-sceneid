@@ -82,9 +82,9 @@ class TestViews(TestCase):
             'response_type=code&client_id=testsite'
         )
 
-        # attempt to return with mismatched state
+        # attempt to return with mismatched state: back to the login page with a message
         response = self.client.get('/account/sceneid/login/?state=55555555&code=4321432143214321')
-        self.assertEqual(response.status_code, 400)
+        self.assertRedirects(response, '/accounts/login/', fetch_redirect_response=False)
 
         # now with correct state
         response = self.client.get('/account/sceneid/login/?state=66666666&code=4321432143214321')
@@ -113,9 +113,9 @@ class TestViews(TestCase):
             'response_type=code&client_id=testsite'
         )
 
-        # attempt to return with mismatched state
+        # attempt to return with mismatched state: back to the login page with a message
         response = self.client.get('/account/sceneid/login/?state=55555555&code=4321432143214321')
-        self.assertEqual(response.status_code, 400)
+        self.assertRedirects(response, '/accounts/login/', fetch_redirect_response=False)
 
         # now with correct state
         response = self.client.get('/account/sceneid/login/?state=66666666&code=4321432143214321')
@@ -123,7 +123,7 @@ class TestViews(TestCase):
         logged_in_user = get_user(self.client)
         self.assertFalse(logged_in_user.is_authenticated)
         messages = list(get_messages(response.wsgi_request))
-        self.assertEqual(str(messages[0]), "This account has been deactivated.")
+        self.assertEqual(str(messages[-1]), "This account has been deactivated.")
 
     @responses.activate
     @patch('sceneid.views.get_random_string')

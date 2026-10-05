@@ -1,11 +1,12 @@
+import logging
+
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-from django.core.exceptions import SuspiciousOperation
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, resolve_url
 from django.urls import reverse
 from django.utils.crypto import get_random_string
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -14,12 +15,13 @@ from django.views import View
 from django.views.generic import TemplateView
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 
-from sceneid.client import SceneIDClient
+from sceneid.client import SceneIDClient, SceneIDError
 from sceneid.forms import UserCreationForm
 from sceneid.models import SceneID
 
 
 app_config = apps.get_app_config('sceneid')
+logger = logging.getLogger(__name__)
 
 
 def _get_sceneid_client():
@@ -27,6 +29,7 @@ def _get_sceneid_client():
         settings.SCENEID_CLIENT_ID,
         settings.SCENEID_CLIENT_SECRET,
         getattr(settings, 'SCENEID_HOSTNAME', 'id.scene.org'),
+        getattr(settings, 'SCENEID_TIMEOUT', 5),
     )
 
 
@@ -43,6 +46,12 @@ def _redirect_back(request):
     if not next_url_is_valid:
         next_url = settings.LOGIN_REDIRECT_URL
     return redirect(next_url)
+
+
+def _login_failed(request, message):
+    """Send the user back to the login page with an explanation."""
+    messages.error(request, message)
+    return redirect(resolve_url(settings.LOGIN_URL))
 
 
 class AuthRedirectView(View):
@@ -64,19 +73,34 @@ class LoginView(View):
     Process the SceneID Oauth response
     """
     def get(self, request):
-        state = request.GET['state']
-        code = request.GET['code']
+        if 'error' in request.GET:
+            # e.g. the user pressed "deny" on SceneID
+            return _login_failed(request, "SceneID login was cancelled.")
 
-        if (state != request.session['sceneid_state']):
-            raise SuspiciousOperation("State mismatch!")
+        state = request.GET.get('state')
+        code = request.GET.get('code')
+        expected_state = request.session.get('sceneid_state')
+        if not (state and code and expected_state and state == expected_state):
+            # expired session, a second tab, or a reused link
+            return _login_failed(request, "Your SceneID login expired. Please try again.")
+        # each state is good for one login only
+        del request.session['sceneid_state']
 
         client = _get_sceneid_client()
-        token_data = client.get_access_token(code, _get_return_uri())
-        access_token = token_data['access_token']
+        try:
+            token_data = client.get_access_token(code, _get_return_uri())
+            access_token = token_data.get('access_token')
+            if not access_token:
+                raise SceneIDError("No access token: %s" % token_data.get('error', token_data))
+            user_data = client.get_user_data(access_token)
+            sceneid = user_data["user"]["id"]
+        except (SceneIDError, KeyError, TypeError, AttributeError) as e:
+            logger.warning("SceneID login failed: %s", e)
+            return _login_failed(
+                request, "SceneID couldn't log you in just now. Please try again later."
+            )
         request.session['sceneid_access_token'] = access_token
-        user_data = client.get_user_data(access_token)
 
-        sceneid = user_data["user"]["id"]
         # look for an existing user linked to this sceneid
         User = get_user_model()
         try:
